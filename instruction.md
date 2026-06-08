@@ -1,22 +1,27 @@
 # SQLite Release Readiness Auditor
 
-We need you to build a Python CLI that acts as a Release Readiness Auditor for our system.
+A Python CLI tool is required to act as a Release Readiness Auditor.
 
-You are provided with a large Engineering Handbook located at `/app/docs/handbook.md` and a seeded SQLite database located at `/app/release_data.db`.
+The tool will be provided with a large Engineering Handbook located at `/app/docs/handbook.md` and a seeded SQLite database located at `/app/release_data.db`.
 
-Your task is to analyze both sources and produce a JSON report at `/app/report.json`.
+The tool must analyze both sources and produce a JSON report at `/app/report.json`.
 
 **Requirements:**
-1. Extract the release readiness policies from the Engineering Handbook (specifically the sections on API Breaking Changes, Flaky Tests, and Database Migrations).
-2. Query the SQLite database (`tickets`, `test_runs`, `api_changes`) to identify any items that violate these policies and block the release.
-3. Your Python script must read the DB and handbook, and generate `/app/report.json` with the exact schema below:
+1. The tool must dynamically extract the release readiness policies from the Engineering Handbook, specifically the thresholds and constraints for API Breaking Changes, Flaky Tests, and Database Migrations.
+2. The tool must evaluate the data in the SQLite database (`tickets`, `test_runs`, `api_changes`) against the extracted policies to identify any violations that block the release.
+   - API breaking change violations must be assigned a `HIGH` severity.
+   - Flaky test violations must be assigned a `HIGH` severity. The ID for these violations must be constructed as `TEST-<test_name>`.
+   - Database migration violations must be assigned a `CRITICAL` severity.
+3. **IMPORTANT - Time Handling:** Because the database contains historical records, your script MUST assume the "current time" is exactly the timestamp of the most recent test run in the `test_runs` table (`MAX(run_time)`). Do NOT use the system's actual `datetime.now()`.
+4. Your main CLI tool MUST be located at `/app/src/cli.py`. The testing framework will execute this file directly.
+5. The tool must output its findings to `/app/report.json` with the exact schema below:
 
 ```json
 {
   "status": "BLOCKED",
   "blockers": [
     {
-      "id": "<id_from_db>",
+      "id": "<id_from_db_or_constructed>",
       "type": "<API_CHANGE | FLAKY_TEST | MIGRATION>",
       "severity": "<HIGH | CRITICAL>",
       "description": "<A brief sentence describing the violation>",
@@ -33,5 +38,3 @@ Your task is to analyze both sources and produce a JSON report at `/app/report.j
 ```
 
 *Note: If there are no blockers, `status` should be "READY", the `blockers` array should be empty, and the counts in `summary` should all be 0.*
-
-Please write your Python script and execute it to generate the report.

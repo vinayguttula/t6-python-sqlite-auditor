@@ -5,11 +5,11 @@ if [ "$PWD" = "/" ]; then
     echo "Error: No working directory set. Please set a WORKDIR in your Dockerfile before running this script."
     mkdir -p /logs/verifier
     echo 0 > /logs/verifier/reward.txt
-    return 0 2>/dev/null || true
+    exit 0
 fi
 
 # Install test dependencies from the pre-downloaded cache (offline)
-pip install --no-index --find-links=/tmp/test-wheels pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy >/dev/null 2>&1
+pip install --no-index --find-links=/tmp/test-wheels pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy >/dev/null 2>&1 || true
 
 mkdir -p /logs/verifier
 

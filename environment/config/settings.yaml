@@ -1,2 +1,4 @@
-# config
-version: '1.0'
+# Auditor Configuration
+db_path: "/app/release_data.db"
+handbook_path: "/app/docs/handbook.md"
+output_path: "/app/report.json"
