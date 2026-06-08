@@ -34,12 +34,10 @@ def run_audit():
         return
 
     # Extract Policy 1: API Changes Approver
-    # Looks for: "...approved by the **Architecture Review Board (ARB)**..."
     api_policy_match = re.search(r'approved by the \*\*(.+?)\*\*', handbook_content)
     api_approver = api_policy_match.group(1) if api_policy_match else "Architecture Review Board (ARB)"
 
     # Extract Policy 2: Flaky Tests Thresholds
-    # Looks for: "...failed more than 3 times in the last 7 days AND has not been fixed... within the last 48 hours."
     fail_thresh_match = re.search(r'failed more than (\d+) times in the last (\d+) days', handbook_content)
     fail_count_limit = int(fail_thresh_match.group(1)) if fail_thresh_match else 3
     days_limit = int(fail_thresh_match.group(2)) if fail_thresh_match else 7
@@ -48,7 +46,6 @@ def run_audit():
     hours_limit = int(pass_thresh_match.group(1)) if pass_thresh_match else 48
 
     # Extract Policy 3: Migration Exception Tag
-    # Looks for: "...exception label `[NO_ROLLBACK_REQUIRED]`..."
     migration_tag_match = re.search(r'exception label `(.+?)`', handbook_content)
     migration_tag = migration_tag_match.group(1) if migration_tag_match else "[NO_ROLLBACK_REQUIRED]"
 
@@ -67,10 +64,21 @@ def run_audit():
             report["summary"]["api_blockers"] += 1
 
     # Apply Policy 2
+    # Determine the "current" time relative to the database. We use the most recent run_time in test_runs as our reference point.
+    c.execute("SELECT MAX(run_time) FROM test_runs")
+    max_time_str = c.fetchone()[0]
+    if max_time_str:
+        # sqlite format is usually 'YYYY-MM-DD HH:MM:SS.ffffff'
+        try:
+            now = datetime.fromisoformat(max_time_str)
+        except ValueError:
+            now = datetime.strptime(max_time_str, "%Y-%m-%d %H:%M:%S.%f")
+    else:
+        now = datetime.now()
+
     c.execute("SELECT test_name FROM test_runs GROUP BY test_name")
     tests = c.fetchall()
 
-    now = datetime.now()
     days_ago_str = (now - timedelta(days=days_limit)).isoformat(sep=' ')
     hours_ago_str = (now - timedelta(hours=hours_limit)).isoformat(sep=' ')
 
