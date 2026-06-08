@@ -1,10 +1,8 @@
 """Tests for the Python SQLite Release Readiness Auditor."""
 import json
-import os
-import pytest
-from pathlib import Path
 import subprocess
 import shutil
+from pathlib import Path
 
 REPORT_PATH = Path("/app/report.json")
 DB_PATH = Path("/app/environment/release_data.db") if Path("/app/environment/release_data.db").exists() else Path("/app/release_data.db")
@@ -22,6 +20,15 @@ def test_tool_is_runnable():
     result = subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
     assert result.returncode == 0, f"The CLI tool failed to execute cleanly. Error: {result.stderr.decode()}"
     assert REPORT_PATH.exists(), "The CLI tool did not generate the report.json file."
+
+def test_report_exists_and_valid():
+    """Verify that the JSON report is generated and is a valid JSON."""
+    assert REPORT_PATH.exists()
+    try:
+        with open(REPORT_PATH, 'r') as f:
+            json.load(f)
+    except json.JSONDecodeError:
+        assert False, "Generated report.json is not valid JSON"
 
 def test_report_schema():
     """Verify the output JSON has the correct required schema."""
