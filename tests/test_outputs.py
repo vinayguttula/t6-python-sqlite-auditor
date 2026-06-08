@@ -1,5 +1,7 @@
 """Tests for the Python SQLite Release Readiness Auditor."""
 import json
+import os
+import pytest
 from pathlib import Path
 import subprocess
 import shutil
@@ -106,18 +108,28 @@ def test_dynamic_extraction(tmp_path):
     """Verify that the tool dynamically extracts policies instead of hardcoding answers."""
     import sqlite3
     
-    # Create a temporary backup of the DB
-    backup_path = str(tmp_path / "backup.db")
-    shutil.copy2(str(DB_PATH), backup_path)
+    dbs_to_modify = []
+    if Path("/app/release_data.db").exists():
+        dbs_to_modify.append("/app/release_data.db")
+    if Path("/app/environment/release_data.db").exists():
+        dbs_to_modify.append("/app/environment/release_data.db")
+
+    # Create a temporary backup of the DBs
+    backups = {}
+    for db in dbs_to_modify:
+        backup_path = str(tmp_path / f"backup_{len(backups)}.db")
+        shutil.copy2(db, backup_path)
+        backups[db] = backup_path
     
     try:
-        conn = sqlite3.connect(str(DB_PATH))
-        c = conn.cursor()
-        c.execute("DELETE FROM api_changes WHERE id = 'api-002'")
-        c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
-        c.execute("DELETE FROM tickets WHERE id = 'TKT-101'")
-        conn.commit()
-        conn.close()
+        for db in dbs_to_modify:
+            conn = sqlite3.connect(db)
+            c = conn.cursor()
+            c.execute("DELETE FROM api_changes WHERE id = 'api-002'")
+            c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
+            c.execute("DELETE FROM tickets WHERE id = 'TKT-101'")
+            conn.commit()
+            conn.close()
 
         # Re-run the tool
         subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
@@ -132,4 +144,7 @@ def test_dynamic_extraction(tmp_path):
         assert len(report["blockers"]) == 0
     finally:
         # Restore the DB to its original state so subsequent runs are not broken!
-        shutil.copy2(backup_path, str(DB_PATH))
+        for db, backup_path in backups.items():
+            shutil.copy2(backup_path, db)
+        # Re-run the tool one last time to restore report.json back to the fully blocked state for any subsequent tests!
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
