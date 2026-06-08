@@ -97,11 +97,12 @@ def test_non_blockers_excluded():
     api_ids = [b["id"] for b in report["blockers"] if b["type"] == "API_CHANGE"]
     assert "api-001" not in api_ids, "api-001 (ARB-approved) should not be an API blocker"
     assert "api-003" not in api_ids, "api-003 (non-breaking) should not be an API blocker"
+    assert "api-004" not in api_ids, "api-004 (0 traffic) should not be an API blocker"
 
     migration_ids = [b["id"] for b in report["blockers"] if b["type"] == "MIGRATION"]
     assert "TKT-100" not in migration_ids, "TKT-100 (has rollback plan) should not be a migration blocker"
     assert "TKT-102" not in migration_ids, "TKT-102 (has exception tag) should not be a migration blocker"
-
+    assert "TKT-104" not in migration_ids, "TKT-104 (has APPROVED linked exception) should not be a migration blocker"
 def test_overall_status_and_summary_counts():
     """Verify that the overall status reflects blockers and summary counts are accurate."""
     report = load_report()

@@ -1,0 +1,9 @@
+services:
+  payment_service:
+    tier: 1
+  preferences_service:
+    tier: 3
+  search_service:
+    tier: 2
+  user_auth:
+    tier: 1

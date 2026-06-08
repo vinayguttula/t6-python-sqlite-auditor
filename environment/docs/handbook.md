@@ -6,13 +6,14 @@ Welcome to the Engineering Handbook. This document contains all policies and gui
 
 ### 1.1 API Breaking Changes
 Any PR introducing a breaking change to a public API must be approved by the **Architecture Review Board (ARB)**. If it is only approved by an Engineering Manager, the release is BLOCKED.
+**Exception:** If the endpoint has received EXACTLY 0 requests in the last 24 hours (as per the `config/metrics.csv` logs), it is considered deprecated and does NOT block the release regardless of approval.
 
 ### 1.2 Flaky Tests
-A test is considered a 'stale flaky test' if it has failed more than 3 times in the last 7 days AND has not been fixed (no passing runs) within the last 48 hours. Stale flaky tests BLOCK the release.
+A test is considered a 'stale flaky test' if it has failed more than 3 times in the last 7 days AND has not been fixed (no passing runs) within the last 48 hours. 
+However, flaky tests only BLOCK the release if they belong to a **Tier 1** service. You must cross-reference `test_name` using `config/test_mapping.json` to find the service name, and then check its tier in `config/ownership.yaml`.
 
 ### 1.3 Database Migrations
-All tickets categorized as 'Migration' MUST contain a documented rollback plan. Migrations without a rollback plan BLOCK the release, UNLESS the ticket is specifically tagged with the exception label `[NO_ROLLBACK_REQUIRED]` in the summary.
-
+All tickets categorized as 'Migration' MUST contain a documented rollback plan. Migrations without a rollback plan BLOCK the release, UNLESS the ticket is specifically tagged with the exception label `[NO_ROLLBACK_REQUIRED]` in the summary, OR if the ticket has a `linked_ticket` whose status in the `exceptions` database table is explicitly `APPROVED`.
 
 
 ## Section 0
