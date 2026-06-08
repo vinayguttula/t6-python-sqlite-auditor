@@ -1,0 +1,5 @@
+endpoint,requests_last_24h
+/v1/users,45000
+/v1/payments,1200
+/v1/status,99999
+/v1/deprecated,0

@@ -8,9 +8,6 @@ if [ "$PWD" = "/" ]; then
     exit 0
 fi
 
-# Install test dependencies from the pre-downloaded cache (offline)
-pip install --no-index --find-links=/tmp/test-wheels pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy >/dev/null 2>&1 || true
-
 mkdir -p /logs/verifier
 
 # The platform mounts tests into /tests/

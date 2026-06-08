@@ -1,0 +1,9 @@
+{
+  "test_payment_gateway": "payment_service",
+  "test_user_auth": "user_auth",
+  "test_search": "search_service",
+  "test_edge_case_fail_count": "preferences_service",
+  "test_edge_case_old_fail": "payment_service",
+  "test_edge_case_pass_time": "user_auth",
+  "test_final_reference": "payment_service"
+}
