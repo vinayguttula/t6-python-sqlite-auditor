@@ -12,7 +12,9 @@ The tool must analyze both sources and produce a JSON report at `/app/report.jso
    - API breaking change violations must be assigned a `HIGH` severity.
    - Flaky test violations must be assigned a `HIGH` severity. The ID for these violations must be constructed as `TEST-<test_name>`.
    - Database migration violations must be assigned a `CRITICAL` severity.
-3. The tool must output its findings to `/app/report.json` with the exact schema below:
+3. **IMPORTANT - Time Handling:** Because the database contains historical records, your script MUST assume the "current time" is exactly the timestamp of the most recent test run in the `test_runs` table (`MAX(run_time)`). Do NOT use the system's actual `datetime.now()`.
+4. Your main CLI tool MUST be located at `/app/src/cli.py`. The testing framework will execute this file directly.
+5. The tool must output its findings to `/app/report.json` with the exact schema below:
 
 ```json
 {
