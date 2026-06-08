@@ -1,11 +1,18 @@
 import sqlite3
 import json
 import re
+import os
 from datetime import datetime, timedelta
 
 def run_audit():
-    db_path = '/app/release_data.db'
-    handbook_path = '/app/docs/handbook.md'
+    db_path = '/app/environment/release_data.db'
+    if not os.path.exists(db_path):
+        db_path = '/app/release_data.db'
+
+    handbook_path = '/app/environment/docs/handbook.md'
+    if not os.path.exists(handbook_path):
+        handbook_path = '/app/docs/handbook.md'
+        
     output_path = '/app/report.json'
 
     report = {
@@ -33,11 +40,9 @@ def run_audit():
         print(f"Database error: {e}")
         return
 
-    # Extract Policy 1: API Changes Approver
     api_policy_match = re.search(r'approved by the \*\*(.+?)\*\*', handbook_content)
     api_approver = api_policy_match.group(1) if api_policy_match else "Architecture Review Board (ARB)"
 
-    # Extract Policy 2: Flaky Tests Thresholds
     fail_thresh_match = re.search(r'failed more than (\d+) times in the last (\d+) days', handbook_content)
     fail_count_limit = int(fail_thresh_match.group(1)) if fail_thresh_match else 3
     days_limit = int(fail_thresh_match.group(2)) if fail_thresh_match else 7
@@ -45,11 +50,9 @@ def run_audit():
     pass_thresh_match = re.search(r'within the last (\d+) hours', handbook_content)
     hours_limit = int(pass_thresh_match.group(1)) if pass_thresh_match else 48
 
-    # Extract Policy 3: Migration Exception Tag
     migration_tag_match = re.search(r'exception label `(.+?)`', handbook_content)
     migration_tag = migration_tag_match.group(1) if migration_tag_match else "[NO_ROLLBACK_REQUIRED]"
 
-    # Apply Policy 1
     c.execute("SELECT id, endpoint, approved_by FROM api_changes WHERE is_breaking = 1")
     for row in c.fetchall():
         api_id, endpoint, approved_by = row
@@ -63,12 +66,9 @@ def run_audit():
             })
             report["summary"]["api_blockers"] += 1
 
-    # Apply Policy 2
-    # Determine the "current" time relative to the database. We use the most recent run_time in test_runs as our reference point.
     c.execute("SELECT MAX(run_time) FROM test_runs")
     max_time_str = c.fetchone()[0]
     if max_time_str:
-        # sqlite format is usually 'YYYY-MM-DD HH:MM:SS.ffffff'
         try:
             now = datetime.fromisoformat(max_time_str)
         except ValueError:
@@ -100,7 +100,6 @@ def run_audit():
                 })
                 report["summary"]["test_blockers"] += 1
 
-    # Apply Policy 3
     c.execute("SELECT id, summary, rollback_plan FROM tickets WHERE type = 'Migration'")
     for row in c.fetchall():
         tkt_id, summary, rollback_plan = row
