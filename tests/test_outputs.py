@@ -1,7 +1,5 @@
 """Tests for the Python SQLite Release Readiness Auditor."""
 import json
-import os
-import pytest
 from pathlib import Path
 import subprocess
 import shutil

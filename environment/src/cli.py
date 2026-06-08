@@ -3,7 +3,6 @@
 Entry point for the SQLite Release Readiness Auditor.
 Implement your CLI logic here.
 """
-import sys
 
 def main():
     pass

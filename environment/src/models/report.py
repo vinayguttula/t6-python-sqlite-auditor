@@ -1,5 +1,5 @@
 """Models representing the output report structure."""
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 class Blocker:
     def __init__(self, id: str, type: str, severity: str, description: str, policy_section: str):
