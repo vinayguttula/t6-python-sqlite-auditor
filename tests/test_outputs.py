@@ -4,6 +4,7 @@ import os
 import pytest
 from pathlib import Path
 import subprocess
+import shutil
 
 REPORT_PATH = Path("/app/report.json")
 DB_PATH = Path("/app/environment/release_data.db") if Path("/app/environment/release_data.db").exists() else Path("/app/release_data.db")
@@ -103,30 +104,34 @@ def test_overall_status_and_summary_counts():
     assert report["summary"]["test_blockers"] == 1
     assert report["summary"]["migration_blockers"] == 1
 
-def test_dynamic_extraction():
+def test_dynamic_extraction(tmp_path):
     """Verify that the tool dynamically extracts policies instead of hardcoding answers."""
     import sqlite3
     
-    # Modify all possible databases to make sure the CLI picks up the modification
-    dbs_to_modify = ["/app/environment/release_data.db", "/app/release_data.db"]
-    for db in dbs_to_modify:
-        if os.path.exists(db):
-            conn = sqlite3.connect(db)
-            c = conn.cursor()
-            c.execute("DELETE FROM api_changes WHERE id = 'api-002'")
-            c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
-            c.execute("DELETE FROM tickets WHERE id = 'TKT-101'")
-            conn.commit()
-            conn.close()
+    # Create a temporary backup of the DB
+    backup_path = str(tmp_path / "backup.db")
+    shutil.copy2(str(DB_PATH), backup_path)
+    
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        c = conn.cursor()
+        c.execute("DELETE FROM api_changes WHERE id = 'api-002'")
+        c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
+        c.execute("DELETE FROM tickets WHERE id = 'TKT-101'")
+        conn.commit()
+        conn.close()
 
-    # Re-run the tool
-    subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
-    
-    # Load the new report
-    assert REPORT_PATH.exists()
-    with open(REPORT_PATH, 'r', encoding='utf-8') as f:
-        report = json.load(f)
-    
-    assert report["status"] == "READY"
-    assert report["summary"]["total_blockers"] == 0
-    assert len(report["blockers"]) == 0
+        # Re-run the tool
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+        
+        # Load the new report
+        assert REPORT_PATH.exists()
+        with open(REPORT_PATH, 'r', encoding='utf-8') as f:
+            report = json.load(f)
+        
+        assert report["status"] == "READY"
+        assert report["summary"]["total_blockers"] == 0
+        assert len(report["blockers"]) == 0
+    finally:
+        # Restore the DB to its original state so subsequent runs are not broken!
+        shutil.copy2(backup_path, str(DB_PATH))
