@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:d17ec4bf0e2d1921356e2971a81bb1a09bb68d374d6c41b802deccbe13af58dd
+FROM mcr.microsoft.com/devcontainers/python:3.12@sha256:d43f1b9f431b963d38ab32ed1e4b727aa6656e3c30e51b8f44dbeac5f7bbcbf7
 WORKDIR /app
 
 # Install required system tools (tmux, asciinema are mandatory for the agent)
