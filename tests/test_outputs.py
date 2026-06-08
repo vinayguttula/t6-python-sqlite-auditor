@@ -146,15 +146,73 @@ def test_dynamic_handbook_extraction():
         # Re-run the tool one last time to restore report.json back to the original fully blocked state for subsequent tests
         subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
 
-def test_time_handling_boundary():
+def test_time_handling_boundary(tmp_path):
     """Verify that the tool respects the specific boundary edge cases for time and flaky counts."""
     report = load_report()
-    
-    # Edge case 1: 'test_edge_case_fail_count' failed EXACTLY 3 times. Threshold is > 3, so it should NOT be flagged.
-    # Edge case 2: 'test_edge_case_old_fail' failed 4 times, but 1 was 8 days ago. So only 3 in last 7 days. NOT flagged.
-    # Edge case 3: 'test_edge_case_pass_time' failed 4 times, but passed exactly 47.9 hours ago. NOT flagged.
     
     test_blockers = [b["id"] for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
     assert "TEST-test_edge_case_fail_count" not in test_blockers, "A test with exactly 3 failures was flagged, but the policy says 'more than 3'."
     assert "TEST-test_edge_case_old_fail" not in test_blockers, "A test with old failures outside the 7-day window was incorrectly flagged."
     assert "TEST-test_edge_case_pass_time" not in test_blockers, "A test with a passing run within the 48-hour window was incorrectly flagged."
+
+def test_time_handling_dynamic(tmp_path):
+    """Verify that the tool strictly uses MAX(run_time) and NOT system datetime.now()."""
+    import sqlite3
+    
+    # We will insert a completely new test run that occurred 5 years ago, and make it the NEW MAX(run_time).
+    # Then we will insert a test that failed 4 times exactly 2 days before that 5-year-old date.
+    # If the tool uses datetime.now(), this 5-year-old failure will be ignored because it's far outside the 7-day window.
+    # If the tool correctly uses MAX(run_time), it will flag it as a blocker.
+    
+    dbs_to_modify = []
+    if Path("/app/release_data.db").exists():
+        dbs_to_modify.append("/app/release_data.db")
+    if Path("/app/environment/release_data.db").exists():
+        dbs_to_modify.append("/app/environment/release_data.db")
+
+    backups = {}
+    for db in dbs_to_modify:
+        backup_path = str(tmp_path / f"time_backup_{len(backups)}.db")
+        shutil.copy2(db, backup_path)
+        backups[db] = backup_path
+    
+    try:
+        for db in dbs_to_modify:
+            conn = sqlite3.connect(db)
+            c = conn.cursor()
+            
+            # The fixed_now in generate_data.py was 2024-01-01
+            # Let's insert a NEW max time: 2010-01-01
+            # Wait! The current max time is 2024-01-01. If we insert 2010-01-01, it won't be the MAX!
+            # So we must insert a NEW MAX time: 2030-01-01!
+            c.execute("INSERT INTO test_runs VALUES ('time-test-ref', 'test_final_reference_2', 'PASSED', '2030-01-01 12:00:00')")
+            
+            # Insert a flaky test that fails exactly 1 day before the new max (2029-12-31)
+            # This is 3 years IN THE FUTURE. A tool using datetime.now() (2026) will think these tests haven't happened yet,
+            # or if it does count them, we can test a date in the past instead!
+            
+            # To be absolutely sure, let's just DELETE all existing test runs, so the MAX is whatever we set.
+            c.execute("DELETE FROM test_runs")
+            
+            # Set the new MAX to 2015-01-10
+            c.execute("INSERT INTO test_runs VALUES ('time-test-ref', 'test_final_reference_2', 'PASSED', '2015-01-10 12:00:00')")
+            
+            # Insert 4 failures for 'test_payment_gateway' on 2015-01-05 (5 days before MAX)
+            for i in range(4):
+                c.execute(f"INSERT INTO test_runs VALUES ('time-fail-{i}', 'test_payment_gateway', 'FAILED', '2015-01-05 12:0{i}:00')")
+            
+            conn.commit()
+            conn.close()
+
+        # Re-run the tool
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+        
+        report = load_report()
+        test_blockers = [b["id"] for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
+        
+        assert "TEST-test_payment_gateway" in test_blockers, "The tool failed to flag a flaky test relative to the MAX(run_time). It is likely incorrectly using datetime.now() instead of the database's historical time!"
+        
+    finally:
+        for db, backup_path in backups.items():
+            shutil.copy2(backup_path, db)
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)

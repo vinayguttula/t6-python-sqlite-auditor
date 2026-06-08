@@ -9,13 +9,14 @@ RUN apt-get update \
         procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Pre-download test dependencies to a cache so we can install them offline in test.sh
-RUN mkdir -p /tmp/test-wheels && pip download -d /tmp/test-wheels pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy
+# Install test dependencies directly in the image per reviewer request
+RUN pip install --no-cache-dir pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy
 
 # Copy task files (making sure not to copy tests/ or solution/)
 COPY docs/ /app/docs/
 COPY src/ /app/src/
 COPY config/ /app/config/
+COPY pyproject.toml Makefile /app/
 COPY release_data.db /app/release_data.db
 
 # Ensure Python can find the src modules
