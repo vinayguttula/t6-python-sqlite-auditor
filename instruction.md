@@ -25,7 +25,7 @@ The tool must analyze both sources and produce a JSON report at `/app/report.jso
       "type": "<API_CHANGE | FLAKY_TEST | MIGRATION>",
       "severity": "<HIGH | CRITICAL>",
       "description": "<A brief sentence describing the violation>",
-      "policy_section": "<The section heading from the handbook that was violated>"
+      "policy_section": "<The exact, full section heading from the handbook that was violated, including its numeric prefix (e.g., '1.1 API Breaking Changes')>"
     }
   ],
   "summary": {

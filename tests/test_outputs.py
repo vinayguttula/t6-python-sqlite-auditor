@@ -55,7 +55,7 @@ def test_api_blocker_detection():
     blocker = api_blockers[0]
     assert blocker["id"] == "api-002"
     assert blocker["severity"] == "HIGH"
-    assert "1.1 API Breaking Changes" in blocker["policy_section"]
+    assert blocker["policy_section"] == "1.1 API Breaking Changes", f"Expected exact heading '1.1 API Breaking Changes', got '{blocker['policy_section']}'"
     
     assert "description" in blocker
     assert len(blocker["description"]) > 10, "Description must be a meaningful sentence"
@@ -70,7 +70,7 @@ def test_flaky_test_detection():
     blocker = test_blockers[0]
     assert blocker["id"] == "TEST-test_payment_gateway"
     assert blocker["severity"] == "HIGH"
-    assert "1.2 Flaky Tests" in blocker["policy_section"]
+    assert blocker["policy_section"] == "1.2 Flaky Tests", f"Expected exact heading '1.2 Flaky Tests', got '{blocker['policy_section']}'"
 
     assert "description" in blocker
     assert len(blocker["description"]) > 10, "Description must be a meaningful sentence"
@@ -85,7 +85,7 @@ def test_migration_blocker_detection():
     blocker = migration_blockers[0]
     assert blocker["id"] == "TKT-101"
     assert blocker["severity"] == "CRITICAL"
-    assert "1.3 Database Migrations" in blocker["policy_section"]
+    assert blocker["policy_section"] == "1.3 Database Migrations", f"Expected exact heading '1.3 Database Migrations', got '{blocker['policy_section']}'"
 
     assert "description" in blocker
     assert len(blocker["description"]) > 10, "Description must be a meaningful sentence"
@@ -111,33 +111,22 @@ def test_overall_status_and_summary_counts():
     assert report["summary"]["test_blockers"] == 1
     assert report["summary"]["migration_blockers"] == 1
 
-def test_dynamic_extraction(tmp_path):
-    """Verify that the tool dynamically extracts policies instead of hardcoding answers."""
+def test_dynamic_handbook_extraction():
+    """Verify that the tool dynamically extracts policies from the handbook instead of hardcoding."""
     import sqlite3
     
-    dbs_to_modify = []
-    if Path("/app/release_data.db").exists():
-        dbs_to_modify.append("/app/release_data.db")
-    if Path("/app/environment/release_data.db").exists():
-        dbs_to_modify.append("/app/environment/release_data.db")
-
-    # Create a temporary backup of the DBs
-    backups = {}
-    for db in dbs_to_modify:
-        backup_path = str(tmp_path / f"backup_{len(backups)}.db")
-        shutil.copy2(db, backup_path)
-        backups[db] = backup_path
+    # We will modify the handbook to change the thresholds and verify the tool respects them.
+    # The flaky test 'test_payment_gateway' has 4 failures in 7 days.
+    # If we change the handbook to say "failed more than 5 times", it should NO LONGER be a blocker.
+    
+    handbook = Path("/app/environment/docs/handbook.md") if Path("/app/environment/docs/handbook.md").exists() else Path("/app/docs/handbook.md")
+    original_text = handbook.read_text(encoding='utf-8')
+    
+    # Change "3 times" to "5 times"
+    modified_text = original_text.replace("3 times", "5 times")
+    handbook.write_text(modified_text, encoding='utf-8')
     
     try:
-        for db in dbs_to_modify:
-            conn = sqlite3.connect(db)
-            c = conn.cursor()
-            c.execute("DELETE FROM api_changes WHERE id = 'api-002'")
-            c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
-            c.execute("DELETE FROM tickets WHERE id = 'TKT-101'")
-            conn.commit()
-            conn.close()
-
         # Re-run the tool
         subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
         
@@ -146,12 +135,25 @@ def test_dynamic_extraction(tmp_path):
         with open(REPORT_PATH, 'r', encoding='utf-8') as f:
             report = json.load(f)
         
-        assert report["status"] == "READY"
-        assert report["summary"]["total_blockers"] == 0
-        assert len(report["blockers"]) == 0
+        # It should no longer flag test_payment_gateway
+        test_blockers = [b for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
+        assert len(test_blockers) == 0, "The flaky test threshold was dynamically modified to 5, but the test with 4 failures was still flagged. The tool is hardcoding thresholds!"
+        
     finally:
-        # Restore the DB to its original state so subsequent runs are not broken!
-        for db, backup_path in backups.items():
-            shutil.copy2(backup_path, db)
-        # Re-run the tool one last time to restore report.json back to the fully blocked state for any subsequent tests!
+        # Restore the handbook
+        handbook.write_text(original_text, encoding='utf-8')
+        # Re-run the tool one last time to restore report.json back to the original fully blocked state for subsequent tests
         subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+
+def test_time_handling_boundary():
+    """Verify that the tool respects the specific boundary edge cases for time and flaky counts."""
+    report = load_report()
+    
+    # Edge case 1: 'test_edge_case_fail_count' failed EXACTLY 3 times. Threshold is > 3, so it should NOT be flagged.
+    # Edge case 2: 'test_edge_case_old_fail' failed 4 times, but 1 was 8 days ago. So only 3 in last 7 days. NOT flagged.
+    # Edge case 3: 'test_edge_case_pass_time' failed 4 times, but passed exactly 47.9 hours ago. NOT flagged.
+    
+    test_blockers = [b["id"] for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
+    assert "TEST-test_edge_case_fail_count" not in test_blockers, "A test with exactly 3 failures was flagged, but the policy says 'more than 3'."
+    assert "TEST-test_edge_case_old_fail" not in test_blockers, "A test with old failures outside the 7-day window was incorrectly flagged."
+    assert "TEST-test_edge_case_pass_time" not in test_blockers, "A test with a passing run within the 48-hour window was incorrectly flagged."
