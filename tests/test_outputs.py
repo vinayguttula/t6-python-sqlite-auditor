@@ -114,7 +114,6 @@ def test_overall_status_and_summary_counts():
 
 def test_dynamic_handbook_extraction():
     """Verify that the tool dynamically extracts policies from the handbook instead of hardcoding."""
-    import sqlite3
     
     # We will modify the handbook to change the thresholds and verify the tool respects them.
     # The flaky test 'test_payment_gateway' has 4 failures in 7 days.
@@ -157,7 +156,6 @@ def test_time_handling_boundary(tmp_path):
 
 def test_time_handling_dynamic(tmp_path):
     """Verify that the tool strictly uses MAX(run_time) and NOT system datetime.now()."""
-    import sqlite3
     
     # We will insert a completely new test run that occurred 5 years ago, and make it the NEW MAX(run_time).
     # Then we will insert a test that failed 4 times exactly 2 days before that 5-year-old date.

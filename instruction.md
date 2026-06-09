@@ -14,27 +14,4 @@ The tool must analyze both sources and produce a JSON report at `/app/report.jso
    - Database migration violations must be assigned a `CRITICAL` severity.
 3. **IMPORTANT - Time Handling:** Because the database contains historical records, your script MUST assume the "current time" is exactly the timestamp of the most recent test run in the `test_runs` table (`MAX(run_time)`). Do NOT use the system's actual `datetime.now()`.
 4. Your main CLI tool MUST be located at `/app/src/cli.py`. The testing framework will execute this file directly.
-5. The tool must output its findings to `/app/report.json` with the exact schema below:
-
-```json
-{
-  "status": "BLOCKED", 
-  "blockers": [
-    {
-      "id": "<id_from_db_or_constructed>",
-      "type": "<API_CHANGE | FLAKY_TEST | MIGRATION>",
-      "severity": "<HIGH | CRITICAL>",
-      "description": "<A brief sentence describing the violation>",
-      "policy_section": "<The exact, full section heading from the handbook that was violated, including its numeric prefix (e.g., '1.1 API Breaking Changes')>"
-    }
-  ],
-  "summary": {
-    "total_blockers": 3,
-    "api_blockers": 1,
-    "test_blockers": 1,
-    "migration_blockers": 1
-  }
-}
-```
-
-*Note: If there are no blockers, `status` should be "READY", the `blockers` array should be empty, and the counts in `summary` should all be 0.*
+5. The tool must output its findings to `/app/report.json`. The report must indicate whether the release is blocked (`BLOCKED` vs `READY`), list any violations with their type, severity, description, ID, and policy section (which must be the exact, full section heading from the handbook that was violated, including its numeric prefix), and provide a summary of the total blocker counts broken down by category.
