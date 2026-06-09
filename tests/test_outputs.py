@@ -5,9 +5,9 @@ import subprocess
 import shutil
 from pathlib import Path
 
-REPORT_PATH = Path("/app/report.json")
-DB_PATH = Path("/app/environment/release_data.db") if Path("/app/environment/release_data.db").exists() else Path("/app/release_data.db")
-CLI_PATH = Path("/app/src/cli.py")
+REPORT_PATH = Path("/app/report.json") if Path("/app").exists() else Path("report.json")
+DB_PATH = Path("/app/environment/release_data.db") if Path("/app/environment/release_data.db").exists() else Path("environment/release_data.db") if Path("environment/release_data.db").exists() else Path("/app/release_data.db")
+CLI_PATH = Path("/app/src/cli.py") if Path("/app").exists() else Path("src/cli.py")
 
 def load_report():
     """Helper to load the report.json"""
@@ -123,7 +123,7 @@ def test_dynamic_handbook_extraction():
     # The flaky test 'test_payment_gateway' has 4 failures in 7 days.
     # If we change the handbook to say "failed more than 5 times", it should NO LONGER be a blocker.
 
-    handbook = Path("/app/environment/docs/handbook.md") if Path("/app/environment/docs/handbook.md").exists() else Path("/app/docs/handbook.md")
+    handbook = Path("/app/environment/docs/handbook.md") if Path("/app/environment/docs/handbook.md").exists() else Path("environment/docs/handbook.md") if Path("environment/docs/handbook.md").exists() else Path("/app/docs/handbook.md")
     original_text = handbook.read_text(encoding='utf-8')
 
     # Change "3 times" to "5 times"

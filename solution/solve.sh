@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /app
-mkdir -p /app/src
+mkdir -p src
 
-cat << 'PYEOF' > /app/src/cli.py
+cat << 'PYEOF' > src/cli.py
 #!/usr/bin/env python3
 import sqlite3
 import json
@@ -22,11 +21,12 @@ def run_audit():
     ownership_path = '/app/config/ownership.json'
 
     if not os.path.exists(db_path):
-        db_path = '/app/environment/release_data.db'
-        handbook_path = '/app/environment/docs/handbook.md'
-        metrics_path = '/app/environment/config/metrics.csv'
-        mapping_path = '/app/environment/config/test_mapping.json'
-        ownership_path = '/app/environment/config/ownership.json'
+        db_path = 'environment/release_data.db'
+        handbook_path = 'environment/docs/handbook.md'
+        metrics_path = 'environment/config/metrics.csv'
+        mapping_path = 'environment/config/test_mapping.json'
+        ownership_path = 'environment/config/ownership.json'
+        output_path = 'report.json'
 
     report = {"status": "READY", "blockers": [], "summary": {"total_blockers": 0, "api_blockers": 0, "test_blockers": 0, "migration_blockers": 0}}
 
@@ -143,5 +143,5 @@ if __name__ == '__main__':
     run_audit()
 PYEOF
 
-chmod +x /app/src/cli.py
-python3 /app/src/cli.py
+chmod +x src/cli.py
+python3 src/cli.py
