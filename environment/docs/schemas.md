@@ -6,6 +6,11 @@
 - `summary` (TEXT): Ticket summary
 - `rollback_plan` (TEXT): Rollback plan description
 - `status` (TEXT): Current ticket status
+- `linked_ticket` (TEXT): ID of the linked exception ticket
+
+## exceptions
+- `id` (TEXT): Exception ID (matches linked_ticket in tickets table)
+- `status` (TEXT): Current exception status (e.g., APPROVED, REJECTED, PENDING)
 
 ## test_runs
 - `id` (TEXT): Run ID

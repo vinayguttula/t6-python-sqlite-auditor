@@ -2,12 +2,12 @@
 
 A Python CLI tool is required to act as a Release Readiness Auditor.
 
-The tool will be provided with a large Engineering Handbook located at `/app/docs/handbook.md` and a seeded SQLite database located at `/app/release_data.db`. It will also have access to configuration files located in `/app/config/`.
+The tool will be provided with a large Engineering Handbook located at `/app/docs/handbook.md` and a seeded SQLite database located at `/app/release_data.db`. It will also have access to configuration files located in `/app/config/`. For the database schema, please refer to `/app/docs/schemas.md`.
 
 The tool must analyze these sources and produce a JSON report at `/app/report.json`.
 
 **Requirements:**
-1. The tool must dynamically extract the release readiness policies from the Engineering Handbook, specifically the thresholds and constraints for API Breaking Changes, Flaky Tests, and Database Migrations.
+1. The tool must dynamically extract the release readiness policies from the Engineering Handbook, specifically the thresholds and constraints for API Breaking Changes, Flaky Tests, and Database Migrations. **CRITICAL: You must extract the threshold values (e.g., the number N in "failed more than N times" or "within the last N hours") from the handbook text at runtime. You cannot hardcode these numbers in your logic.**
 2. The tool must evaluate the data in the SQLite database (`tickets`, `test_runs`, `api_changes`, `exceptions`) against the extracted policies and the auxiliary configuration files to identify any violations that block the release.
    - API breaking change violations must be assigned a `HIGH` severity. They are ONLY considered blockers if the endpoint has received traffic in the last 24 hours (cross-reference with `/app/config/metrics.csv`).
    - Flaky test violations must be assigned a `HIGH` severity. The ID for these violations must be constructed as `TEST-<test_name>`. They are ONLY considered blockers if they belong to a Tier-1 service (cross-reference `test_name` with `/app/config/test_mapping.json` to find the service, then check the tier in `/app/config/ownership.json`).
