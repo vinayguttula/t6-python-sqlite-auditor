@@ -4,17 +4,20 @@ A Python CLI tool is required to act as a Release Readiness Auditor.
 
 The tool will be provided with a large Engineering Handbook located at `/app/docs/handbook.md` and a seeded SQLite database located at `/app/release_data.db`. It will also have access to configuration files located in `/app/config/`. For the database schema, please refer to `/app/docs/schemas.md`.
 
-The tool must analyze these sources and produce a JSON report at `/app/report.json`.
+**Functional Requirements:**
 
-**Requirements:**
-1. The tool must dynamically extract the release readiness policies from the Engineering Handbook, specifically the thresholds and constraints for API Breaking Changes, Flaky Tests, and Database Migrations. **CRITICAL: You must extract the threshold values (e.g., the number N in "failed more than N times" or "within the last N hours") from the handbook text at runtime. You cannot hardcode these numbers in your logic.**
-2. The tool must evaluate the data in the SQLite database (`tickets`, `test_runs`, `api_changes`, `exceptions`) against the extracted policies and the auxiliary configuration files to identify any violations that block the release.
-   - API breaking change violations must be assigned a `HIGH` severity. They are ONLY considered blockers if the endpoint has received traffic in the last 24 hours (cross-reference with `/app/config/metrics.csv`).
-   - Flaky test violations must be assigned a `HIGH` severity. The ID for these violations must be constructed as `TEST-<test_name>`. They are ONLY considered blockers if they belong to a Tier-1 service (cross-reference `test_name` with `/app/config/test_mapping.json` to find the service, then check the tier in `/app/config/ownership.json`).
-   - Database migration violations must be assigned a `CRITICAL` severity. They are allowed to proceed without a rollback plan if they have a linked ticket whose status in the `exceptions` table is `APPROVED`.
-3. **IMPORTANT - Time Handling:** Because the database contains historical records, your script MUST assume the "current time" is exactly the timestamp of the most recent test run in the `test_runs` table (`MAX(run_time)`). Do NOT use the system's actual `datetime.now()`.
-4. Your main CLI tool MUST be located at `/app/src/cli.py`. The testing framework will execute this file directly.
-5. The tool must output its findings to `/app/report.json`. The report must indicate whether the release is blocked and list any violations with their type, severity, description, ID, and policy section (which must be the exact, full section heading from the handbook that was violated, including its numeric prefix). It must also provide a summary of the total blocker counts broken down by category.
+1. **Policy Extraction**: The tool must dynamically read and parse release readiness policies from the Engineering Handbook, specifically locating thresholds and constraints for API Breaking Changes, Flaky Tests, and Database Migrations. The numeric threshold values (e.g., the number *N* in "failed more than *N* times" or "within the last *N* hours") must be derived dynamically from the handbook text at runtime.
+2. **Violation Evaluation**: The tool must cross-reference data in the SQLite database (`tickets`, `test_runs`, `api_changes`, `exceptions`) against the extracted policies and auxiliary configuration files to determine if any violations block the release.
+   - **API Breaking Changes**: These violations must be assigned a `HIGH` severity. An API change is considered a blocker only if the endpoint received traffic in the last 24 hours (determined via `/app/config/metrics.csv`).
+   - **Flaky Tests**: These violations must be assigned a `HIGH` severity. The ID for these violations must be constructed as `TEST-<test_name>`. A flaky test is considered a blocker only if it belongs to a Tier-1 service (determined by mapping the test name via `/app/config/test_mapping.json` to find the service, and looking up its tier in `/app/config/ownership.json`).
+   - **Database Migrations**: These violations must be assigned a `CRITICAL` severity. Migrations are allowed to proceed without a rollback plan if they have a linked ticket whose status in the `exceptions` table is `APPROVED`.
+3. **Time Handling**: Because the database contains historical records, the logical "current time" for all calculations must be exactly the timestamp of the most recent test run in the `test_runs` table (`MAX(run_time)`). The system's actual clock time should not be used.
+
+**Execution and Setup Requirements:**
+
+1. The main CLI entrypoint must be located at `/app/src/cli.py`. The testing framework will execute this file directly.
+2. The tool must output its findings as a JSON file located at `/app/report.json`.
+3. The report must indicate the overall status and list any violations with their type, severity, description, ID, and policy section (which must be the exact, full section heading from the handbook that was violated, including its numeric prefix). It must also provide a summary of the total blocker counts broken down by category.
 
 **Example Expected Output:**
 ```json
