@@ -11,7 +11,7 @@ fi
 mkdir -p /logs/verifier
 
 # Install test dependencies here so they are not baked into the Docker image unnecessarily.
-pip install pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig==2.0.0 packaging==24.0 pluggy==1.5.0
+pip install pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig==2.0.0 packaging==24.0 pluggy==1.5.0 pygments==2.18.0
 
 # The platform mounts tests into /tests/
 python3 -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
