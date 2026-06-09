@@ -11,7 +11,6 @@ import json
 import re
 import os
 import csv
-import yaml
 from datetime import datetime, timedelta
 
 def run_audit():
@@ -20,14 +19,14 @@ def run_audit():
     output_path = '/app/report.json'
     metrics_path = '/app/config/metrics.csv'
     mapping_path = '/app/config/test_mapping.json'
-    ownership_path = '/app/config/ownership.yaml'
+    ownership_path = '/app/config/ownership.json'
 
     if not os.path.exists(db_path):
         db_path = '/app/environment/release_data.db'
         handbook_path = '/app/environment/docs/handbook.md'
         metrics_path = '/app/environment/config/metrics.csv'
         mapping_path = '/app/environment/config/test_mapping.json'
-        ownership_path = '/app/environment/config/ownership.yaml'
+        ownership_path = '/app/environment/config/ownership.json'
 
     report = {"status": "READY", "blockers": [], "summary": {"total_blockers": 0, "api_blockers": 0, "test_blockers": 0, "migration_blockers": 0}}
 
@@ -54,7 +53,7 @@ def run_audit():
         test_mapping = json.load(f)
 
     with open(ownership_path, 'r') as f:
-        ownership = yaml.safe_load(f)
+        ownership = json.load(f)
 
     # 1. API Changes
     api_policy_match = re.search(r'approved by the \*\*(.+?)\*\*', handbook_content)

@@ -1,5 +1,6 @@
 """Tests for the Python SQLite Release Readiness Auditor."""
 import json
+import sqlite3
 import subprocess
 import shutil
 from pathlib import Path
@@ -94,6 +95,9 @@ def test_non_blockers_excluded():
     """Verify that valid/passing items (e.g. non-breaking changes, excepted migrations) are excluded."""
     report = load_report()
 
+    test_blockers = [b["id"] for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
+    assert "TEST-test_tier3_failures" not in test_blockers, "A flaky test belonging to a Tier-3 service was incorrectly flagged as a blocker."
+
     api_ids = [b["id"] for b in report["blockers"] if b["type"] == "API_CHANGE"]
     assert "api-001" not in api_ids, "api-001 (ARB-approved) should not be an API blocker"
     assert "api-003" not in api_ids, "api-003 (non-breaking) should not be an API blocker"
@@ -114,7 +118,6 @@ def test_overall_status_and_summary_counts():
 
 def test_dynamic_handbook_extraction():
     """Verify that the tool dynamically extracts policies from the handbook instead of hardcoding."""
-    import sqlite3
 
     # We will modify the handbook to change the thresholds and verify the tool respects them.
     # The flaky test 'test_payment_gateway' has 4 failures in 7 days.
@@ -157,7 +160,6 @@ def test_time_handling_boundary(tmp_path):
 
 def test_time_handling_dynamic(tmp_path):
     """Verify that the tool strictly uses MAX(run_time) and NOT system datetime.now()."""
-    import sqlite3
 
     # We will insert a completely new test run that occurred 5 years ago, and make it the NEW MAX(run_time).
     # Then we will insert a test that failed 4 times exactly 2 days before that 5-year-old date.
@@ -211,6 +213,68 @@ def test_time_handling_dynamic(tmp_path):
         test_blockers = [b["id"] for b in report["blockers"] if b["type"] == "FLAKY_TEST"]
 
         assert "TEST-test_payment_gateway" in test_blockers, "The tool failed to flag a flaky test relative to the MAX(run_time). It is likely incorrectly using datetime.now() instead of the database's historical time!"
+
+    finally:
+        for db, backup_path in backups.items():
+            shutil.copy2(backup_path, db)
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+
+
+def test_dynamic_metrics_extraction(tmp_path):
+    """Verify that the tool dynamically extracts traffic metrics and doesn't just hardcode exclusions."""
+    metrics_path = Path("/app/environment/config/metrics.csv") if Path("/app/environment/config/metrics.csv").exists() else Path("/app/config/metrics.csv")
+    backup_path = tmp_path / "metrics_backup.csv"
+    shutil.copy2(metrics_path, backup_path)
+
+    try:
+        # Give api-004 some traffic so it becomes a blocker!
+        new_csv = "endpoint,requests_last_24h\n/v1/users,45000\n/v1/payments,1200\n/v1/status,99999\n/v1/deprecated,500\n"
+        metrics_path.write_text(new_csv)
+
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+        report = load_report()
+        api_blockers = [b["id"] for b in report["blockers"] if b["type"] == "API_CHANGE"]
+        assert "api-004" in api_blockers, "api-004 was given traffic but wasn't flagged. The tool is likely hardcoding exclusions without dynamically reading metrics.csv!"
+
+    finally:
+        shutil.copy2(backup_path, metrics_path)
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+
+def test_dynamic_resolution(tmp_path):
+    """Verify that the tool correctly outputs READY status when all blockers are resolved."""
+    import sqlite3
+
+    dbs_to_modify = []
+    if Path("/app/release_data.db").exists():
+        dbs_to_modify.append("/app/release_data.db")
+    if Path("/app/environment/release_data.db").exists():
+        dbs_to_modify.append("/app/environment/release_data.db")
+
+    backups = {}
+    for db in dbs_to_modify:
+        backup_path = str(tmp_path / f"resolve_backup_{len(backups)}.db")
+        shutil.copy2(db, backup_path)
+        backups[db] = backup_path
+
+    try:
+        for db in dbs_to_modify:
+            conn = sqlite3.connect(db)
+            c = conn.cursor()
+
+            # Resolve all blockers
+            c.execute("UPDATE api_changes SET approved_by = 'Architecture Review Board (ARB)' WHERE id = 'api-002'")
+            c.execute("DELETE FROM test_runs WHERE test_name = 'test_payment_gateway'")
+            c.execute("UPDATE tickets SET rollback_plan = 'REVERT...' WHERE id = 'TKT-101'")
+
+            conn.commit()
+            conn.close()
+
+        subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
+
+        report = load_report()
+        assert report["status"] == "READY", "The tool did not output READY status when all blockers were resolved."
+        assert report["summary"]["total_blockers"] == 0, "The total blockers count was not 0 after resolving."
+        assert len(report["blockers"]) == 0, "The blockers list was not empty after resolving."
 
     finally:
         for db, backup_path in backups.items():
