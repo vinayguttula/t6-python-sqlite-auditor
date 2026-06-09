@@ -5,9 +5,9 @@ import subprocess
 import shutil
 from pathlib import Path
 
-REPORT_PATH = Path("/app/report.json") if Path("/app").exists() else Path("report.json")
+REPORT_PATH = Path("report.json") if not Path("/app/release_data.db").exists() else Path("/app/report.json")
 DB_PATH = Path("/app/environment/release_data.db") if Path("/app/environment/release_data.db").exists() else Path("environment/release_data.db") if Path("environment/release_data.db").exists() else Path("/app/release_data.db")
-CLI_PATH = Path("/app/src/cli.py") if Path("/app").exists() else Path("src/cli.py")
+CLI_PATH = Path("src/cli.py") if not Path("/app/src/cli.py").exists() else Path("/app/src/cli.py")
 
 def load_report():
     """Helper to load the report.json"""
@@ -17,7 +17,7 @@ def load_report():
 
 def test_tool_is_runnable():
     """Verify that a Python CLI tool exists and is runnable."""
-    assert CLI_PATH.exists(), "The required /app/src/cli.py entry point does not exist."
+    assert CLI_PATH.exists(), "The required cli.py entry point does not exist."
     result = subprocess.run(["python3", str(CLI_PATH)], capture_output=True, timeout=30)
     assert result.returncode == 0, f"The CLI tool failed to execute cleanly. Error: {result.stderr.decode()}"
     assert REPORT_PATH.exists(), "The CLI tool did not generate the report.json file."
@@ -169,7 +169,9 @@ def test_time_handling_dynamic(tmp_path):
     dbs_to_modify = []
     if Path("/app/release_data.db").exists():
         dbs_to_modify.append("/app/release_data.db")
-    if Path("/app/environment/release_data.db").exists():
+    elif Path("environment/release_data.db").exists():
+        dbs_to_modify.append("environment/release_data.db")
+    elif Path("/app/environment/release_data.db").exists():
         dbs_to_modify.append("/app/environment/release_data.db")
 
     backups = {}
@@ -222,7 +224,7 @@ def test_time_handling_dynamic(tmp_path):
 
 def test_dynamic_metrics_extraction(tmp_path):
     """Verify that the tool dynamically extracts traffic metrics and doesn't just hardcode exclusions."""
-    metrics_path = Path("/app/environment/config/metrics.csv") if Path("/app/environment/config/metrics.csv").exists() else Path("/app/config/metrics.csv")
+    metrics_path = Path("/app/environment/config/metrics.csv") if Path("/app/environment/config/metrics.csv").exists() else Path("environment/config/metrics.csv") if Path("environment/config/metrics.csv").exists() else Path("/app/config/metrics.csv")
     backup_path = tmp_path / "metrics_backup.csv"
     shutil.copy2(metrics_path, backup_path)
 
@@ -247,7 +249,9 @@ def test_dynamic_resolution(tmp_path):
     dbs_to_modify = []
     if Path("/app/release_data.db").exists():
         dbs_to_modify.append("/app/release_data.db")
-    if Path("/app/environment/release_data.db").exists():
+    elif Path("environment/release_data.db").exists():
+        dbs_to_modify.append("environment/release_data.db")
+    elif Path("/app/environment/release_data.db").exists():
         dbs_to_modify.append("/app/environment/release_data.db")
 
     backups = {}
