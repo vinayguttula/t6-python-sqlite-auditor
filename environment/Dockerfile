@@ -9,8 +9,8 @@ RUN apt-get update \
         procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install test dependencies directly in the image per reviewer request
-RUN pip install --no-cache-dir pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy
+# Install solution dependencies (PyYAML) AND test dependencies directly in the image
+RUN pip install --no-cache-dir pyyaml==6.0.3 pytest==8.4.1 pytest-json-ctrf==0.5.0 iniconfig packaging pluggy
 
 # Copy task files (making sure not to copy tests/ or solution/)
 COPY docs/ /app/docs/
